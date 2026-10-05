@@ -1,0 +1,30 @@
+{
+  "dataset": {
+    "samples": 160,
+    "patch_size": "16x16",
+    "qubits": 4
+  },
+  "classical_baseline": {
+    "accuracy": 0.975,
+    "macro_f1": 0.9749843652282677,
+    "auc_roc": 1.0
+  },
+  "quantum_qsvc": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "auc_roc": 1.0
+  },
+  "quantum_backend": "fallback-poly-svm: ModuleNotFoundError",
+  "parameter_efficiency_note": "QSVC optimizes support vectors/kernel boundary, not a deep CNN with thousands of trainable weights.",
+  "noise_zne_demo": {
+    "available": false,
+    "reason": "Qiskit Aer unavailable: ModuleNotFoundError",
+    "zne_estimate": null,
+    "noisy_expectations": []
+  },
+  "vector_database": {
+    "mode": "local-json",
+    "path": "outputs/local_vector_db.json",
+    "count": 120
+  }
+}
