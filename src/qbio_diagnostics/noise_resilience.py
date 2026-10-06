@@ -1,57 +1,87 @@
-"""Small Qiskit Aer noise and zero-noise extrapolation demo.
-
-This is intentionally lightweight for hackathon demos. It shows how the encoded
-quantum feature-map expectation can be evaluated under depolarizing noise and then
-linearly extrapolated toward the zero-noise limit.
-"""
+"""Classifier-level noise-resilience benchmark for the quantum kernel."""
 from __future__ import annotations
 
-from typing import Dict, List
+from typing import Dict
 import numpy as np
+from sklearn.svm import SVC
+from sklearn.metrics import accuracy_score, f1_score, roc_auc_score
+
+from .quantum_reference import (
+    pure_state_kernel,
+    density_matrix_stack,
+    density_overlap_kernel,
+    zne_extrapolate_kernels,
+)
 
 
-def run_zne_feature_map_demo(feature_vector: np.ndarray, shots: int = 512) -> Dict[str, object]:
-    try:
-        from qiskit import QuantumCircuit, transpile
-        from qiskit_aer import AerSimulator
-        from qiskit_aer.noise import NoiseModel, depolarizing_error
-    except Exception as exc:  # fallback keeps repo runnable
-        return {
-            "available": False,
-            "reason": f"Qiskit Aer unavailable: {exc.__class__.__name__}",
-            "zne_estimate": None,
-            "noisy_expectations": [],
-        }
-
-    n = len(feature_vector)
-    qc = QuantumCircuit(n, n)
-    for i, angle in enumerate(feature_vector):
-        qc.ry(float(angle), i)
-    for i in range(n - 1):
-        qc.cx(i, i + 1)
-    qc.measure(range(n), range(n))
-
-    scale_factors = [1.0, 2.0, 3.0]
-    expectations: List[float] = []
-    for scale in scale_factors:
-        noise = NoiseModel()
-        noise.add_all_qubit_quantum_error(depolarizing_error(0.01 * scale, 1), ["ry"])
-        noise.add_all_qubit_quantum_error(depolarizing_error(0.02 * scale, 2), ["cx"])
-        sim = AerSimulator(noise_model=noise)
-        tqc = transpile(qc, sim)
-        counts = sim.run(tqc, shots=shots).result().get_counts()
-        # Z expectation on first qubit from measured bitstrings.
-        exp_z = 0.0
-        for bitstr, count in counts.items():
-            first = bitstr[-1]
-            exp_z += (1 if first == "0" else -1) * count / shots
-        expectations.append(float(exp_z))
-
-    coeffs = np.polyfit(scale_factors, expectations, deg=1)
-    zne_estimate = float(np.polyval(coeffs, 0.0))
+def _evaluate_precomputed(k_train, k_test, y_train, y_test) -> dict:
+    model = SVC(kernel="precomputed", C=2.0, probability=True, random_state=7)
+    model.fit(k_train, y_train)
+    pred = model.predict(k_test)
+    score = model.predict_proba(k_test)[:, 1]
     return {
-        "available": True,
-        "scale_factors": scale_factors,
-        "noisy_expectations": expectations,
-        "zne_estimate": zne_estimate,
+        "accuracy": float(accuracy_score(y_test, pred)),
+        "macro_f1": float(f1_score(y_test, pred, average="macro")),
+        "auc_roc": float(roc_auc_score(y_test, score)),
+    }
+
+
+def run_noise_classification_benchmark(
+    x_train: np.ndarray,
+    y_train: np.ndarray,
+    x_test: np.ndarray,
+    y_test: np.ndarray,
+    p1: float = 0.015,
+    p2: float = 0.060,
+) -> Dict[str, object]:
+    """Compare ideal, noisy, and ZNE-mitigated classifier performance.
+
+    If Qiskit Aer is available in the participant environment, the repository can
+    be extended to execute the same circuits there. The packaged metrics are from
+    the deterministic reference density-matrix simulator and are explicitly
+    labeled as such, never as IBM hardware results.
+    """
+    ideal_train = pure_state_kernel(x_train, reps=1, entanglement="full")
+    ideal_test = pure_state_kernel(x_test, x_train, reps=1, entanglement="full")
+    ideal_metrics = _evaluate_precomputed(ideal_train, ideal_test, y_train, y_test)
+
+    scales = [1.0, 2.0, 3.0]
+    train_ks = []
+    test_ks = []
+    for scale in scales:
+        rho_tr = density_matrix_stack(x_train, p1=p1, p2=p2, noise_scale=scale, reps=1, entanglement="full")
+        rho_te = density_matrix_stack(x_test, p1=p1, p2=p2, noise_scale=scale, reps=1, entanglement="full")
+        train_ks.append(density_overlap_kernel(rho_tr))
+        test_ks.append(density_overlap_kernel(rho_te, rho_tr))
+
+    noisy_metrics = _evaluate_precomputed(train_ks[0], test_ks[0], y_train, y_test)
+    zne_train = zne_extrapolate_kernels(train_ks, scales)
+    zne_test = zne_extrapolate_kernels(test_ks, scales)
+    zne_metrics = _evaluate_precomputed(zne_train, zne_test, y_train, y_test)
+
+    aer_available = False
+    aer_detail = None
+    try:
+        import qiskit_aer  # noqa: F401
+        aer_available = True
+        aer_detail = "Qiskit Aer detected; packaged numeric table remains reference-simulator output unless rerun with an Aer-specific path."
+    except Exception as exc:
+        aer_detail = f"Qiskit Aer not installed in packaging environment ({exc.__class__.__name__})."
+
+    return {
+        "simulator": "reference 4-qubit density-matrix simulator",
+        "noise_model": {
+            "one_qubit_depolarizing_probability": p1,
+            "two_qubit_depolarizing_probability": p2,
+            "scale_factors_for_zne": scales,
+        },
+        "ideal": ideal_metrics,
+        "noisy": noisy_metrics,
+        "zne_mitigated": zne_metrics,
+        "qiskit_aer_available_in_packaging_environment": aer_available,
+        "qiskit_aer_note": aer_detail,
+        "ibm_hardware": {
+            "status": "not_run",
+            "reason": "Requires participant IBM Quantum account/token and queued QPU execution. No hardware result is claimed.",
+        },
     }

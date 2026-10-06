@@ -1,55 +1,76 @@
 # Q-BioDiag: Quantum AI for Early Biomedical Diagnostics
 
-A hackathon-ready demo for **Track 8: Quantum AI for Healthcare & Biomedical Diagnostics**.
+Hackathon-ready project for **IBM Qiskit Fall Fest 2026 - Track 8: Quantum AI for Healthcare & Biomedical Diagnostics**.
 
-Q-BioDiag is a hybrid quantum-classical diagnostic prototype. It generates small microscopy-style image patches, compresses each image into a 4-qubit feature vector, classifies early lesion patterns using a **Qiskit QSVC quantum kernel**, compares against a classical baseline, and stores diagnostic case embeddings in **Pinecone** for similarity search and clinical explanation retrieval.
+Q-BioDiag is a hybrid quantum-classical diagnostic prototype. It generates reproducible 16x16 microscopy-style biomedical patches, compresses each image into a 4-feature / 4-qubit representation, compares a classical RBF-SVM baseline with a quantum-kernel SVM, runs 5-fold validation, evaluates classifier-level noise resilience, and stores case embeddings in a Pinecone-compatible diagnostic memory.
 
-## Why this matters
-Early disease signals can be tiny and noisy. Classical CNNs often need large labelled datasets. This project demonstrates how a quantum feature map can transform compact image features into a high-dimensional Hilbert space for non-linear separation with fewer trainable parameters.
+## Important claim guardrail
+
+Do **not** say this project proves clinical accuracy or that IBM Quantum hardware achieved 100% accuracy.
+
+Correct wording for the pitch:
+
+> QSVC / quantum-kernel evaluation achieved 100% accuracy on the 40-sample held-out evaluation set in the current reproducible demo pipeline. A 5-fold stratified CV check and a noise-resilience benchmark are included. IBM Quantum hardware execution is prepared as an optional next step, but no IBM QPU result is claimed in this packaged run.
+
+## What changed in this updated version
+
+- Removed the misleading classical polynomial-SVM fallback.
+- Added a NumPy reference implementation of the 4-qubit ZZ-style fidelity kernel for environments where Qiskit is missing.
+- Added leakage-safe **5-fold stratified cross-validation**.
+- Added classifier-level **ideal vs noisy vs ZNE** quantum-kernel robustness experiment.
+- Added explicit **IBM hardware: not run** status to avoid false claims.
+- Updated the deck, metrics JSON, demo script, and notebook wording.
 
 ## Architecture
 
 ```text
 Synthetic / clinical image patches
         ↓
-Preprocessing + lesion patch extraction
+Preprocessing + diagnostic feature extraction
         ↓
-PCA feature compression → 4 features = 4 qubits
+4 compact features = 4 qubits
         ↓
 Qiskit ZZFeatureMap + FidelityQuantumKernel + QSVC
+(or equivalent reference quantum-kernel simulator when Qiskit is unavailable)
         ↓
-Prediction + metrics + robustness analysis
+Prediction + confusion matrix + ROC + learning curve
         ↓
-Pinecone vector DB stores embeddings + case metadata
+5-fold validation + quantum noise-resilience benchmark
         ↓
-Streamlit dashboard for demo and retrieval
+Pinecone/local vector DB for similar-case retrieval
 ```
 
 ## Repository contents
 
 ```text
 src/qbio_diagnostics/
-  data.py                  Synthetic biomedical image data generator
-  features.py              Preprocessing + PCA feature compression
-  train_classical.py       Classical SVM baseline
-  train_qsvc.py            Qiskit QSVC quantum-kernel classifier
-  noise_resilience.py      Small quantum noise + ZNE demo helper
-  pinecone_store.py        Pinecone vector DB integration with local fallback
-  app_streamlit.py         Demo dashboard
-  run_demo.py              One-command hackathon demo
+  data.py                         Synthetic biomedical patch generator
+  features.py                     Image feature extraction + leakage-safe fold transforms
+  quantum_reference.py            4-qubit ZZ-style quantum-kernel reference simulator
+  train_classical.py              Classical RBF-SVM baseline
+  train_qsvc.py                   Qiskit QSVC path + reference quantum-kernel fallback
+  validation.py                   5-fold stratified cross-validation
+  noise_resilience.py             Ideal/noisy/ZNE classifier-level robustness benchmark
+  ibm_hardware_benchmark.py       Optional IBM Quantum execution starter
+  pinecone_store.py               Pinecone integration with local JSON fallback
+  run_demo.py                     One-command demo
+  app_streamlit.py                Simple dashboard
 notebooks/
   Quantum_AI_Biomedical_Diagnostics_Demo.ipynb
 outputs/
-  Sample generated figures and metrics
-requirements.txt
+  Generated figures and metrics_summary.json
+docs/
+  demo_video_script.md
 ```
 
 ## Quick start
 
 ```bash
 python -m venv .venv
+
 # Windows
 .venv\Scripts\activate
+
 # macOS/Linux
 source .venv/bin/activate
 
@@ -64,6 +85,25 @@ Run the dashboard:
 streamlit run src/qbio_diagnostics/app_streamlit.py
 ```
 
+## Key outputs
+
+After running the demo, check `outputs/metrics_summary.json` and these figures:
+
+- `quantum_confusion_matrix.png`
+- `quantum_roc_curve.png`
+- `learning_curve.png`
+- `cross_validation.png`
+- `noise_resilience.png`
+
+Expected packaged result summary:
+
+- Dataset: 160 synthetic microscopy-style patches
+- Held-out test set: 40 samples, balanced 20 benign / 20 lesion
+- Quantum-kernel held-out result: 100% accuracy on this small prototype set
+- 5-fold quantum-kernel CV: around 0.994 mean accuracy in the packaged run
+- Noise benchmark: reports ideal, noisy, and ZNE scores using a reference 4-qubit density-matrix simulator
+- IBM Quantum hardware: **not run** in the package; use `ibm_hardware_benchmark.py` only with your own IBM Quantum account/token
+
 ## Optional Pinecone setup
 
 The project works without Pinecone by writing a local vector store to `outputs/local_vector_db.json`.
@@ -77,20 +117,25 @@ set PINECONE_INDEX=qbio-diagnostics
 python -m qbio_diagnostics.run_demo --use-pinecone
 ```
 
-## Expected output
+## Optional IBM Quantum execution
 
-The demo prints:
+The packaged result does not claim IBM hardware execution. To add it later:
 
-- Classical baseline accuracy, F1, AUC
-- Quantum QSVC accuracy, F1, AUC, parameter-efficiency estimate
-- Confusion matrix and ROC curve in `outputs/`
-- Learning-curve comparison for small-data settings
-- Local or Pinecone vector database status
+```bash
+set IBM_QUANTUM_TOKEN=your_ibm_quantum_token
+python -m qbio_diagnostics.ibm_hardware_benchmark
+```
 
-## Pitch in one line
+`QISKIT_IBM_TOKEN` is also accepted if that is how your environment is configured. Use hardware results only if the job actually completes and produces saved metrics.
 
-**Q-BioDiag detects subtle early lesion patterns using a hybrid Qiskit quantum-kernel classifier and Pinecone-based diagnostic case retrieval.**
+## 2-4 minute video flow
 
-## Notes for judges
+1. Show the problem: subtle benign vs lesion biomedical patches.
+2. Run `python -m qbio_diagnostics.run_demo --samples 160 --qubits 4`.
+3. Open `outputs/metrics_summary.json` and say the exact claim guardrail.
+4. Show confusion matrix, ROC, cross-validation, and noise-resilience chart.
+5. Mention IBM hardware is prepared but not claimed in the packaged run.
 
-This is a hackathon-scale prototype, not a medical device. The demo uses synthetic microscopy-style patches so it is reproducible within minutes. The same pipeline can be connected to BreakHis, HAM10000, Chest X-Ray, or CT patch datasets by replacing `data.py` with a dataset loader.
+## Final pitch line
+
+**Q-BioDiag turns tiny biomedical image signals into quantum-kernel similarity patterns, tests robustness under noise, and retrieves explainable diagnostic cases for a clinically inspired workflow.**

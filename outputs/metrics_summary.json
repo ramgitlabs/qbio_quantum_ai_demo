@@ -1,27 +1,175 @@
 {
   "dataset": {
     "samples": 160,
+    "held_out_test_samples": 40,
+    "held_out_test_class_balance": {
+      "benign": 20,
+      "lesion": 20
+    },
     "patch_size": "16x16",
-    "qubits": 4
+    "qubits": 4,
+    "feature_names": [
+      "std",
+      "max_intensity",
+      "bright_ratio",
+      "local_contrast"
+    ],
+    "source": "synthetic microscopy-style demonstration data"
   },
-  "classical_baseline": {
-    "accuracy": 0.975,
-    "macro_f1": 0.9749843652282677,
-    "auc_roc": 1.0
-  },
-  "quantum_qsvc": {
+  "classical_baseline_held_out": {
     "accuracy": 1.0,
     "macro_f1": 1.0,
     "auc_roc": 1.0
   },
-  "quantum_backend": "fallback-poly-svm: ModuleNotFoundError",
-  "parameter_efficiency_note": "QSVC optimizes support vectors/kernel boundary, not a deep CNN with thousands of trainable weights.",
-  "noise_zne_demo": {
-    "available": false,
-    "reason": "Qiskit Aer unavailable: ModuleNotFoundError",
-    "zne_estimate": null,
-    "noisy_expectations": []
+  "quantum_kernel_held_out": {
+    "accuracy": 1.0,
+    "macro_f1": 1.0,
+    "auc_roc": 1.0
   },
+  "quantum_execution_path": "reference-quantum-kernel-numpy (Qiskit unavailable: ModuleNotFoundError)",
+  "claim_guardrail": "Held-out metrics are prototype results on 40 synthetic samples, not clinical accuracy and not IBM Quantum hardware results.",
+  "cross_validation_5fold": {
+    "protocol": "5-fold stratified cross-validation; feature scaling fit inside each training fold",
+    "classical_rbf_svm": {
+      "folds": [
+        {
+          "fold": 1,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 2,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 3,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 4,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 5,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        }
+      ],
+      "mean_accuracy": 1.0,
+      "std_accuracy": 0.0,
+      "mean_macro_f1": 1.0,
+      "std_macro_f1": 0.0,
+      "mean_auc_roc": 1.0,
+      "std_auc_roc": 0.0
+    },
+    "reference_quantum_kernel_svm": {
+      "folds": [
+        {
+          "fold": 1,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 2,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 3,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 4,
+          "accuracy": 0.96875,
+          "macro_f1": 0.9687194525904204,
+          "auc_roc": 1.0
+        },
+        {
+          "fold": 5,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "auc_roc": 1.0
+        }
+      ],
+      "mean_accuracy": 0.99375,
+      "std_accuracy": 0.012499999999999999,
+      "mean_macro_f1": 0.9937438905180841,
+      "std_macro_f1": 0.012512218963831857,
+      "mean_auc_roc": 1.0,
+      "std_auc_roc": 0.0
+    },
+    "note": "Reference quantum-kernel CV reproduces the circuit mathematics without claiming IBM hardware execution."
+  },
+  "small_data_learning_curve": {
+    "train_sizes": [
+      20,
+      40,
+      80,
+      120
+    ],
+    "classical_accuracy": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "quantum_accuracy": [
+      0.975,
+      0.95,
+      0.975,
+      1.0
+    ]
+  },
+  "noise_resilience": {
+    "simulator": "reference 4-qubit density-matrix simulator",
+    "noise_model": {
+      "one_qubit_depolarizing_probability": 0.015,
+      "two_qubit_depolarizing_probability": 0.06,
+      "scale_factors_for_zne": [
+        1.0,
+        2.0,
+        3.0
+      ]
+    },
+    "ideal": {
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "auc_roc": 1.0
+    },
+    "noisy": {
+      "accuracy": 0.975,
+      "macro_f1": 0.9749843652282677,
+      "auc_roc": 1.0
+    },
+    "zne_mitigated": {
+      "accuracy": 0.95,
+      "macro_f1": 0.949874686716792,
+      "auc_roc": 1.0
+    },
+    "qiskit_aer_available_in_packaging_environment": false,
+    "qiskit_aer_note": "Qiskit Aer not installed in packaging environment (ModuleNotFoundError).",
+    "ibm_hardware": {
+      "status": "not_run",
+      "reason": "Requires participant IBM Quantum account/token and queued QPU execution. No hardware result is claimed."
+    }
+  },
+  "ibm_quantum_hardware": {
+    "status": "not_run",
+    "reason": "No IBM QPU job has been executed in this packaged run. Use `python -m qbio_diagnostics.ibm_hardware_benchmark` with an IBM Quantum account."
+  },
+  "parameter_efficiency_note": "The quantum-kernel model learns an SVM boundary over circuit-derived similarities; it does not train a large deep CNN.",
   "vector_database": {
     "mode": "local-json",
     "path": "outputs/local_vector_db.json",
